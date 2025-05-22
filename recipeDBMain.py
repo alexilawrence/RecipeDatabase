@@ -1,4 +1,6 @@
 import pymongo
+import os
+from dotenv import load_dotenv
 import sys
 import datetime
 import flask
@@ -7,12 +9,13 @@ import bcrypt
 from bcrypt import hashpw, gensalt, checkpw
 from functools import wraps
 
-
+load_dotenv()
 app = Flask(__name__)
-app.secret_key =b'43d8a5a1bc80006b7bdab6296aa565fbcdc71876be269788548d2472665cda40'
+app.secret_key = os.getenv("SECRET_KEY")
 app.permanent_session_lifetime = datetime.timedelta(minutes=60) #sessions close after 60min
 
-client = pymongo.MongoClient('mongodb+srv://alexilawrence:mongoPW@cluster0.6im0d.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+mongClient = os.getenv("MONGODB_URI")
+client = pymongo.MongoClient(mongClient)
 db = client.myDatabase
 
 def login_required(f):
