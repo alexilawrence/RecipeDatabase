@@ -9,6 +9,8 @@ import bcrypt
 from bcrypt import hashpw, gensalt, checkpw
 from functools import wraps
 
+
+##REMEMBER NOT TO USE THIS WEBAPP CODE OR DATABASE FOR ACTUAL PRODUCTION IN THE FUTURE. MAKE A NEW ONE THAT IS MORE SECURE
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
@@ -145,7 +147,28 @@ def create():
         ingredients = request.form['ingredients']
         procedures = request.form['procedures']
         tips = request.form['tips']
+        tags = request.form['tags']
         
+        ##add tags to the user's collection
+        userColl = db.get_collection('users')
+        user = userColl.find_one({
+            'userID':{'$eq': session['userID']}
+        })
+        
+        if 'tags' not in user:
+            user['tags'] = []
+        
+        cleanedTags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+    
+        for tag in cleanedTags:
+            if tag not in user['tags']:
+                user['tags'].append(tag)
+                
+        userColl.update_one(
+            {'userID': session['userID']},
+            {'$set': {'tags': user['tags']}}
+        )
+            
         #get collection
         coll = db.get_collection('recipes')
         
@@ -161,7 +184,7 @@ def create():
                 components.append(splitted[1].strip())
             
         #insert the data into the collection
-        coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips})
+        coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips, 'tags':cleanedTags})
         
         #return the user to the 'view' page
         names = []
@@ -227,11 +250,18 @@ def edit():
             components = recipe['components']
             procedures = recipe['procedures']
             tips = recipe['tips']
+            tags = recipe.get('tags', '')
+            
+            if len(tags) >1: 
+                tags = ','.join(tags)            
+            elif len(tags) == 1:
+                tags = tags[0]
+            
             
             ingredients = ''
             for i in range(len(quantities)):
                 ingredients += f"{quantities[i]} | {components[i]}\n"
-            return flask.render_template('editPage.html', recipeName=recipeName, ingredients=ingredients, procedures=procedures, tips=tips)
+            return flask.render_template('editPage.html', recipeName=recipeName, ingredients=ingredients, procedures=procedures, tips=tips, tags=tags)
     else:
         coll = db.get_collection('recipes')
         names = []
@@ -251,6 +281,27 @@ def editPage():
     ingredients = request.form['ingredients']
     procedures = request.form['procedures']
     tips = request.form['tips']
+    tags = request.form['tags']
+    
+    #add tags to the user's collection
+    userColl = db.get_collection('users')
+    user = userColl.find_one({
+        'userID':{'$eq': session['userID']}
+    })
+    
+    if 'tags' not in user:
+        user['tags'] = []
+    
+    cleanedTags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+    
+    for tag in cleanedTags:
+        if tag not in user['tags']:
+            user['tags'].append(tag)
+            
+    userColl.update_one(
+        {'userID': session['userID']},
+        {'$set': {'tags': user['tags']}}
+    )
     
     #get collection
     coll = db.get_collection('recipes')
@@ -272,7 +323,7 @@ def editPage():
                 'userID':{'$eq': session['userID']}
                 })
     #insert the data into the collection
-    coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips})
+    coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips, 'tags':cleanedTags})
     
     
     return flask.render_template('home.html', username = session['username'])
@@ -315,10 +366,26 @@ def signup():
         num = coll.count_documents({})
         userID = num
         
-        coll.insert_one({'username':username, 'password':encryptedPW, 'userID':userID})
+        coll.insert_one({'username':username, 'password':encryptedPW, 'userID':userID, 'tags':[]})
         return redirect('/login')
     
     else:
         return flask.render_template('signup.html')
+    
+    
+def filter_recipes():
+    data = request.get_json()
+    tags = data.get('tags', [])
+    
+    recipeColl = db.get_collection('recipes')
+    if tags:
+        recipes = list(recipeColl.find({'tags': {'$in': tags}}))
+    else:
+        recipes = list(recipeColl.find())
+        
+    recipe_names = [recipe['recipeName'] for recipe in recipes]
+    return flask.render_template('partials/_recipe_buttons.html', names=recipe_names)
+
+
 if __name__ == "__main__":
     app.run(port=5000)

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Recipe Tagging</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css">
+</head>
+<body>
+
+  <h2>Tag this Recipe</h2>
+  <input id="tag-input" name="tags" placeholder="Add tags...">
+
+  <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify"></script>
+  <script>
+    const tagOptions = [
+      "Vegan", "Vegetarian", "Gluten-Free", "Dessert", "Breakfast",
+      "Dinner", "Quick", "Low-Carb", "Spicy", "Italian", "Japanese"
+    ];
+
+    const input = document.getElementById('tag-input');
+    const tagify = new Tagify(input, {
+      whitelist: tagOptions,
+      dropdown: {
+        enabled: 1,
+        maxItems: 10,
+        fuzzySearch: true,
+        position: 'auto',
+        highlightFirst: true
+      },
+      enforceWhitelist: false,
+      maxTags: 10
+    });
+  </script>
+
+</body>
+</html>
+

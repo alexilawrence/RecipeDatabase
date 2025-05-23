@@ -1,0 +1,50 @@
+Possible tags:
+
+    Meal types 
+        -Breakfast
+        -Lunch
+        -Dinner
+        -Snack
+        -Dessert
+        -Appetizer
+    Cuisine
+        -Italian
+        -Korean
+        -Indian
+        -Mediterranean
+        -Mexican
+        -Chinese
+        -SE Asia
+        -Chinese
+        -Japanese
+        -French
+        -Western
+        -African
+    
+    Dietary
+        -Vegan
+        -Vegetarian
+        -GF
+        -Keto
+        -Halal
+        -Nut free
+        -Dairy 
+    
+    Prep time
+        -Under 15 min 
+        -30 min 
+        -slow cook
+        -overnight
+    
+    Skill level
+        -Beginner
+        -Intermediate
+        -Advanced
+    
+    Main ingredient
+        -Chicken
+        -Beef
+        -Pasta
+        -Pork
+        -Noodle
+        -Soup

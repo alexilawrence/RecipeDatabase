@@ -1,0 +1,15 @@
+[x] Add tags to each recipe (allow for filtering and easier searching)
+    [x] Add tags to create page
+    [x] Edit backend for create page
+    [x] Edit backend for edit page
+    [x] Edit backend for editPage
+    [x] Add tags to editPage page
+    [x] Add tags to the user record for easier tracking
+[] Add a filter to the View page to filter by tags.
+    [] FIGURE OUT WHY THE HELL VIEW AINT WORKING
+[] Design the community page on Figma (will only be possible after finishing most of the ideas here)
+[] Add a 'bookmark' or 'save' feature for recipes
+[] Add a way to insert images of the recipes 
+[] Add a way to add notes to saved recipes  (if the idea below about forking/copying doesnt go through)
+[] Maybe add a feature that would allow users to "fork" or copy recipes from others to allow them to make edits
+[] Integrate the recipe scraper to the website 
