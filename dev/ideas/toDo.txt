@@ -8,23 +8,24 @@
 [x] Add a filter to the View page to filter by tags.
     [x] FIGURE OUT WHY THE HELL VIEW AINT WORKING (its because you cant have a label for the filter input)
 [x] Design the community page on Figma (will only be possible after finishing most of the ideas here)
-[] Add author(could just search from the backend) and recipe desc
-[] Add community to every navbar
-[] Add a field to check if it is a public or private recipe
-[] Add a field to set visibility of the recipes
-[] Add a field for recipe desc to:
-    [] create frontend
-    [] create backend
-    [] view frontend
-    [] view backend
-    [] viewPage frontend 
-    [] viewpage backend 
+[x] Add author(could just search from the backend) and recipe desc
+[x] Add community to every navbar
+[x] Add a field to check if it is a public or private recipe
+[x] Add a field to set visibility of the recipes
+[x] Add a field for recipe desc to:
+    [x] create frontend
+    [x] create backend
+    [x] view frontend
+    [x] view backend
+    [x] viewPage frontend 
+    [x] viewpage backend 
 
-[] Add a 'bookmark' or 'save' feature for recipes <-- need to set up the community page and include the author for the viewPage
-[] Maybe add a feature that would allow users to "fork" or copy recipes from others to allow them to make edits
+[x] Add a 'bookmark' or 'save' feature for recipes <-- need to set up the community page and include the author for the viewPage
+[x] Maybe add a feature that would allow users to "fork" or copy recipes from others to allow them to make edits
+[x] make a base.html page for stuff like the navbar then extend from it in other code
+
+[] figure out how to do that dropdown menu like on the tagify page
 
 
-
-[] make a base.html page for stuff like the navbar then extend from it in other code
 [] Integrate the recipe scraper to the website 
 [] Add a way to insert images of the recipes 
