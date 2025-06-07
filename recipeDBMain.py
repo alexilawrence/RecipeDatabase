@@ -8,9 +8,10 @@ from flask import Flask, url_for, request, session, redirect
 import bcrypt
 from bcrypt import hashpw, gensalt, checkpw
 from functools import wraps
+import json
+from bson import ObjectId
+import gridfs
 
-
-##REMEMBER NOT TO USE THIS WEBAPP CODE OR DATABASE FOR ACTUAL PRODUCTION IN THE FUTURE. MAKE A NEW ONE THAT IS MORE SECURE
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
@@ -19,6 +20,9 @@ app.permanent_session_lifetime = datetime.timedelta(minutes=60) #sessions close 
 mongClient = os.getenv("MONGODB_URI")
 client = pymongo.MongoClient(mongClient)
 db = client.myDatabase
+
+#initialise gridfs
+fs = gridfs.GridFS(db)
 
 def login_required(f):
     @wraps(f)
@@ -44,10 +48,10 @@ def home():
                 names = ['No recipes added. Click me to return to the home page']
                 
                 
-            return flask.render_template('view.html', names=names)
+            return flask.render_template('view.html', current_page='view', names=names)
         
         elif desiredPage == 'Create':
-            return flask.render_template('create.html')
+            return flask.render_template('create.html', current_page='create')
         
         
         
@@ -57,11 +61,12 @@ def home():
             data = coll.find({'userID':{'$eq':session['userID']}})
             for doc in data:
                 names.append(doc['recipeName'])
+
                 
             if len(names) == 0:
                 names = ['No recipes added. Click me to return to the home page']
             
-            return flask.render_template('edit.html', names=names)
+            return flask.render_template('edit.html', current_page='edit', names=names)
         
         
         elif desiredPage == 'Delete':
@@ -77,7 +82,7 @@ def home():
             return flask.render_template('Delete.html', names=names)
         
     else:
-        return flask.render_template('home.html', username = session['username'])
+        return flask.render_template('home.html', current_page='home', username = session['username'])
         
 @app.route('/view', methods = ['GET', "POST"])
 @login_required
@@ -85,7 +90,7 @@ def view():
     if request.method == "POST":
         recipeName = request.form['recipe']
         if recipeName == 'No recipes added. Click me to return to the home page':
-            return flask.render_template('home.html', username = session['username'])
+            return flask.render_template('home.html', current_page='home', username = session['username'])
         
         else:
             #return recipeName, along with the actual recipe (Decide how its gonnna be done)
@@ -96,31 +101,70 @@ def view():
                 'userID':{'$eq': session['userID']}
                 })
             
-            quantities = recipe['quantities']
-            components = recipe['components']
-            procedures = recipe['procedures']
             tips = recipe['tips']
-            ingredients = []
-            
-            for i in range(len(components)):
-                ingredients.append(f"{quantities[i]}, {components[i]}")      
-            
+            vis = recipe['visibility']
         
-            cleanedProcedures = []
-            for procedure in procedures.splitlines():
-                procedure = procedure.strip()
-                if procedure:
-                    cleanedProcedures.append(procedure)
+            #Handle tags
+            if 'tags' not in recipe:
+                recipe['tags'] = []
+            
+            tags = recipe['tags']
+
+            if len(tags) == 0:
+                tags = ['No tags added. Maybe consider adding one on the edit page?']
+
+            #Handle recipe desc 
+            if 'desc' not in recipe:
+                recipe['desc'] = ''
+            
+            desc = recipe['desc']
+
+            if len(desc) == 0:
+                desc = 'No description added. Maybe consider adding one on the edit page?'
+                
             cleanedTips = [tip.strip() for tip in tips.strip().splitlines()]
             
-            enumeratedProcedures = []
-            for i in range(len(cleanedProcedures)):
-                num = i + 1
-                enumeratedProcedures.append(f"{num}. {cleanedProcedures[i]}")
+            #for older files that do not have the 'type' key
+            recipeType = recipe.get('typed', 0)
+            if recipeType == 0:
+                if 'procedures' in recipe:
+                    recipe['type'] = 'typed'
+                
+                else:
+                    recipe['type'] = 'file'
+            
+            if recipe['type'] =='typed':
+                quantities = recipe['quantities']
+                components = recipe['components']
+                procedures = recipe['procedures']
+            
+                
+                ingredients = []
+                
+                for i in range(len(components)):
+                    ingredients.append(f"{quantities[i]}, {components[i]}")      
+                
+            
+                cleanedProcedures = []
+                for procedure in procedures.splitlines():
+                    procedure = procedure.strip()
+                    if procedure:
+                        cleanedProcedures.append(procedure)
+                
+                
+                enumeratedProcedures = []
+                for i in range(len(cleanedProcedures)):
+                    num = i + 1
+                    enumeratedProcedures.append(f"{num}. {cleanedProcedures[i]}")
         
 
             
-            return flask.render_template('viewRecipe.html', recipeName=recipeName, ingredients=ingredients, procedures=enumeratedProcedures, tips=cleanedTips)
+                return flask.render_template('viewRecipe.html', current_page='view', recipeName=recipeName, ingredients=ingredients, procedures=enumeratedProcedures, tips=cleanedTips, tags=tags, desc=desc, vis=vis)
+            
+            elif recipe['type'] =='file':
+                fileType = recipe['file_type']
+                fileId = recipe['file_id']
+                return flask.render_template('viewRecipe.html', current_page='view', fileId=fileId, fileType =fileType, tips=cleanedTips, tags=tags, desc=desc, vis=vis)
         
         
     else:
@@ -133,21 +177,25 @@ def view():
         if len(names) == 0:
                 names = ['No recipes added. Click me to return to the home page']
                 
-        return flask.render_template('view.html', names = names)
+        return flask.render_template('view.html', current_page='view', names = names)
     
 @app.route('/view/<recipeName>', methods=["GET", "POST"])
 def viewRecipe(recipeName):
-    return flask.render_template('home.html', username = session['username'])
+    return flask.render_template('home.html', current_page='home', username = session['username'])
     
 @app.route('/create', methods=['GET', 'POST'])
 @login_required
 def create():
     if request.method == 'POST':
+        entryType = request.form['entryType']
         recipeName = request.form['recipeName']
-        ingredients = request.form['ingredients']
-        procedures = request.form['procedures']
         tips = request.form['tips']
         tags = request.form['tags']
+        desc = request.form['desc']
+        vis = request.form['vis']
+        
+        #get collection
+        coll = db.get_collection('recipes')
         
         ##add tags to the user's collection
         userColl = db.get_collection('users')
@@ -158,7 +206,9 @@ def create():
         if 'tags' not in user:
             user['tags'] = []
         
-        cleanedTags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        parsed_tags = json.loads(tags)
+        cleanedTags = [tag['value'].strip() for tag in parsed_tags if 'value' in tag]
+        #cleanedTags = [tag.strip() for tag in tags.split(',') if tag.strip()]
     
         for tag in cleanedTags:
             if tag not in user['tags']:
@@ -168,32 +218,61 @@ def create():
             {'userID': session['userID']},
             {'$set': {'tags': user['tags']}}
         )
-            
-        #get collection
-        coll = db.get_collection('recipes')
         
-        #clean up the ingredients list
-        quantities = []
-        components = []
-        for i in ingredients.splitlines():
-            i = i.strip()
-            if i:
-                splitted = i.split(sep="|")
-                print(splitted)
-                quantities.append(splitted[0].strip())
-                components.append(splitted[1].strip())
+        toInsert = {
+            'userID': session['userID'],
+            'recipeName': recipeName, 
+            'tips':tips, 
+            'tags':cleanedTags, 
+            'desc':desc,
+            'visibility':vis
+        }
+        
+        if entryType == 'typed':
+            
+            ingredients = request.form['ingredients']
+            procedures = request.form['procedures']
+            
+            
+            #clean up the ingredients list
+            quantities = []
+            components = []
+            for i in ingredients.splitlines():
+                i = i.strip()
+                if i:
+                    splitted = i.split(sep="|")
+                    quantities.append(splitted[0].strip())
+                    components.append(splitted[1].strip())
+                    
+            toInsert.update({
+                'quantities':quantities, 
+                'components':components, 
+                'procedures': procedures, 
+                'type': 'typed'
+            })
+            
+        elif entryType == 'file':
+            file = request.files.get('fileUpload')
+            file_id = fs.put(file, filename=file.filename, content_type=file.content_type)
+            
+            toInsert.update({
+                'file_id': file_id,
+                'filename': file.filename,
+                'file_type': file.content_type,
+                'type': 'file'
+            })
             
         #insert the data into the collection
-        coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips, 'tags':cleanedTags})
-        
+        coll.insert_one(toInsert)
+            
         #return the user to the 'view' page
         names = []
         data = coll.find({'userID':{'$eq':session['userID']}})
         for doc in data:
             names.append(doc['recipeName'])
-        return flask.render_template('view.html', names=names)
+        return flask.render_template('view.html', current_page='view', names=names)
     
-    return flask.render_template('create.html')
+    return flask.render_template('create.html', current_page='create')
 
 
 @app.route('/delete', methods= ['GET', 'POST'])
@@ -202,10 +281,10 @@ def delete():
     if request.method == "POST":
         recipeName = request.form['recipe']
         if recipeName == 'No recipes added. Click me to return to the home page':
-            return flask.render_template('home.html', username = session['username'])
+            return flask.render_template('home.html', current_page='home', username = session['username'])
         
         else:
-            return flask.render_template('confirmDelete.html', recipeName=recipeName)
+            return flask.render_template('confirmDelete.html', current_page='delete', recipeName=recipeName)
         
     else:
         coll = db.get_collection('recipes')
@@ -216,7 +295,7 @@ def delete():
             
         if len(names) == 0:
                 names = ['No recipes added. Click me to return to the home page']
-        return flask.render_template('delete.html', names = names)
+        return flask.render_template('delete.html', current_page='delete', names = names)
     
 @app.route('/confirmDelete', methods=["GET", "POST"])
 @login_required
@@ -230,7 +309,7 @@ def confirmDelete():
                 'userID':{'$eq': session['userID']}
                 })
         
-    return flask.render_template('home.html')
+    return flask.render_template('home.html', current_page='home')
 
 @app.route('/edit', methods=['GET', 'POST'])
 @login_required
@@ -238,7 +317,7 @@ def edit():
     if request.method=="POST":
         recipeName = request.form['recipe']
         if recipeName == 'No recipes added. Click me to return to the home page':
-            return flask.render_template('home.html', username = session['username'])
+            return flask.render_template('home.html', current_page='home', username = session['username'])
         
         else:
             coll = db.get_collection('recipes')
@@ -249,8 +328,10 @@ def edit():
             quantities = recipe['quantities']
             components = recipe['components']
             procedures = recipe['procedures']
+            vis = recipe.get('visibility', '')
             tips = recipe['tips']
             tags = recipe.get('tags', '')
+            desc = recipe.get('desc', '')
             
             if len(tags) >1: 
                 tags = ','.join(tags)            
@@ -261,18 +342,19 @@ def edit():
             ingredients = ''
             for i in range(len(quantities)):
                 ingredients += f"{quantities[i]} | {components[i]}\n"
-            return flask.render_template('editPage.html', recipeName=recipeName, ingredients=ingredients, procedures=procedures, tips=tips, tags=tags)
+            return flask.render_template('editPage.html', current_page='edit', recipeName=recipeName, ingredients=ingredients, procedures=procedures, tips=tips, tags=tags, desc=desc, vis=vis)
     else:
         coll = db.get_collection('recipes')
         names = []
         data = coll.find({'userID':{'$eq':session['userID']}})
         for doc in data:
             names.append(doc['recipeName'])
+        
+
             
         if len(names) == 0:
                 names = ['No recipes added. Click me to return to the home page']
-                
-        return flask.render_template('edit.html', names = names)
+        return flask.render_template('edit.html', current_page='edit', names = names)
             
 @app.route('/editPage', methods=['GET','POST'])
 @login_required
@@ -281,7 +363,9 @@ def editPage():
     ingredients = request.form['ingredients']
     procedures = request.form['procedures']
     tips = request.form['tips']
-    tags = request.form['tags']
+    tags = request.form.get("tags")
+    desc = request.form.get("desc")
+    vis = request.form['vis']
     
     #add tags to the user's collection
     userColl = db.get_collection('users')
@@ -291,9 +375,11 @@ def editPage():
     
     if 'tags' not in user:
         user['tags'] = []
-    
-    cleanedTags = [tag.strip() for tag in tags.split(',') if tag.strip()]
-    
+
+    tags = json.loads(tags)
+
+    cleanedTags = [tag["value"] for tag in tags]
+
     for tag in cleanedTags:
         if tag not in user['tags']:
             user['tags'].append(tag)
@@ -313,7 +399,6 @@ def editPage():
         i = i.strip()
         if i:
             splitted = i.split(sep="|")
-            print(splitted)
             quantities.append(splitted[0].strip())
             components.append(splitted[1].strip())
         
@@ -323,10 +408,19 @@ def editPage():
                 'userID':{'$eq': session['userID']}
                 })
     #insert the data into the collection
-    coll.insert_one({'userID': session['userID'],'recipeName': recipeName, 'quantities':quantities, 'components':components, 'procedures': procedures, 'tips':tips, 'tags':cleanedTags})
+    coll.insert_one({
+                'userID': session['userID'],
+                'recipeName': recipeName, 
+                'quantities':quantities, 
+                'components':components, 
+                'procedures': procedures, 
+                'tips':tips, 
+                'tags':cleanedTags, 
+                'desc':desc,
+                'visibility':vis
+            })
     
-    
-    return flask.render_template('home.html', username = session['username'])
+    return flask.render_template('home.html', current_page='home', username = session['username'])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -372,7 +466,10 @@ def signup():
     else:
         return flask.render_template('signup.html')
     
-    
+
+
+
+@app.route('/filter-recipes', methods=['POST'])   
 def filter_recipes():
     data = request.get_json()
     tags = data.get('tags', [])
@@ -380,11 +477,105 @@ def filter_recipes():
     recipeColl = db.get_collection('recipes')
     if tags:
         recipes = list(recipeColl.find({'tags': {'$in': tags}}))
+
     else:
         recipes = list(recipeColl.find())
         
     recipe_names = [recipe['recipeName'] for recipe in recipes]
+
     return flask.render_template('partials/_recipe_buttons.html', names=recipe_names)
+
+
+@app.route('/community', methods=['GET', 'POST'])
+def community():
+    if request.method=='GET':
+        recipeColl = db.get_collection('recipes')
+        usersColl = db.get_collection('users')
+
+        #Pre load the collections from recipes and users
+        recipes = list(recipeColl.find({"visibility":{"$eq":'public'}}))
+        users = {str(user['userID']): user["username"] for user in usersColl.find()}
+
+        #adding username to each recipe in recipes
+        for recipe in recipes:
+            recipe["username"] = users.get(str(recipe['userID']))
+
+    return flask.render_template('community.html', current_page='community', recipes=recipes)
+
+@app.route('/publicView/<recipeID>')
+def publicView(recipeID):
+    recipeColl = db.get_collection('recipes')
+    recipe = recipeColl.find_one({'_id': ObjectId(recipeID)})
+    username = request.args.get('username')
+    quantities = recipe['quantities']
+    components = recipe['components']
+    procedures = recipe['procedures']
+    tips = recipe['tips']
+    vis = recipe['visibility']
+    tags = recipe['tags']
+
+    if len(tags) == 0:
+        tags = ['No tags added.']
+    
+    desc = recipe['desc']
+
+    #add username to recipe name
+    recipeName = str(username) +"'s " + recipe['recipeName']
+
+
+    ingredients = []
+    
+    for i in range(len(components)):
+        ingredients.append(f"{quantities[i]}, {components[i]}")      
+    
+
+    cleanedProcedures = []
+    for procedure in procedures.splitlines():
+        procedure = procedure.strip()
+        if procedure:
+            cleanedProcedures.append(procedure)
+    cleanedTips = [tip.strip() for tip in tips.strip().splitlines()]
+    
+    enumeratedProcedures = []
+    for i in range(len(cleanedProcedures)):
+        num = i + 1
+        enumeratedProcedures.append(f"{num}. {cleanedProcedures[i]}")
+
+
+    
+    return flask.render_template('viewPublicRecipe.html', current_page='view', recipeName=recipeName, ingredients=ingredients, procedures=enumeratedProcedures, tips=cleanedTips, tags=tags, desc=desc, vis=vis, recipeID=recipeID)
+
+@app.route('/copyRecipe/<recipeID>')
+@login_required
+def copyRecipe(recipeID):
+    recipeColl = db.get_collection('recipes')
+    recipe = recipeColl.find_one({'_id': ObjectId(recipeID)})
+    recipeName = request.args.get('recipeName')
+
+    quantities = recipe['quantities']
+    components = recipe['components']
+    procedures = recipe['procedures']
+    vis = recipe.get('visibility', '')
+    tips = recipe['tips']
+    tags = recipe.get('tags', '')
+    desc = recipe.get('desc', '')
+    
+    if len(tags) >1: 
+        tags = ','.join(tags)            
+    elif len(tags) == 1:
+        tags = tags[0]
+    
+    
+    ingredients = ''
+    for i in range(len(quantities)):
+        ingredients += f"{quantities[i]} | {components[i]}\n"
+    return flask.render_template('editPage.html', current_page='edit', recipeName=recipeName, ingredients=ingredients, procedures=procedures, tips=tips, tags=tags, desc=desc, vis=vis)
+ 
+
+@app.route('/file/<fileId>')
+def get_file(fileId):
+    file = fs.get(ObjectId(fileId))
+    return flask.Response(file.read(), content_type=file.content_type)
 
 
 if __name__ == "__main__":

@@ -13,3 +13,8 @@
 [] Add a way to add notes to saved recipes  (if the idea below about forking/copying doesnt go through)
 [] Maybe add a feature that would allow users to "fork" or copy recipes from others to allow them to make edits
 [] Integrate the recipe scraper to the website 
+[] I have added the option to insert files for the create page, and have settled the backend for inserting to the collection
+    but still need to find a way to present the files when viewing and when editing. Check 'Recipe Tagging Options' on chatGPT
+    [] have settled for viewRecipe and its backend. Need to settle:
+        [] editPage + backend
+        [] viewPublicRecipe + backend

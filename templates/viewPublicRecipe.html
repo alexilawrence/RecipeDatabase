@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipeName }}{% endblock %}
+
+{% block content %}
+        <div class='container'>
+            <h1 style="font-size: 3rem;">{{ recipeName }}</h1>
+            <p><strong>Tags:</strong> {{ tags | join(', ') }}</p>
+            <br>
+            <a href="{{ url_for('copyRecipe', recipeID=recipeID, recipeName=recipeName) }}" class="btn btn-dark">Copy recipe</a>
+            <br><br>
+            <h3>Description: </h3>
+            <p>{{ desc }}</p>
+            <br>
+            <h3>Ingredients: </h3>
+            {% for ingredient in ingredients %}
+                <p>{{ ingredient }}</p>
+            {% endfor %}
+            <br>
+            <h3>Procedure:</h3>
+            {% for procedure in procedures %}
+                <p>{{ procedure }}</p>
+            {% endfor %}
+            <br>
+            <h3>Tips/advice:</h3>
+            <ul>
+            {% for tip in tips %}
+            <li>{{ tip }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+{% endblock %}
+    
