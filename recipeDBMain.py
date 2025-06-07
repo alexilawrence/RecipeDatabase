@@ -472,6 +472,7 @@ def signup():
 @app.route('/filter-recipes', methods=['POST'])   
 def filter_recipes():
     data = request.get_json()
+    print('Received tags:', data.get('tags', []))
     tags = data.get('tags', [])
     
     recipeColl = db.get_collection('recipes')
